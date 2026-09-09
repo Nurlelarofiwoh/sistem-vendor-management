@@ -101,7 +101,7 @@
 
                                     <template x-for="(v, index) in vendors" :key="v.id">
                                         <div class="flex gap-2 mb-3">
-                                            <div class="flex-1" x-init="setTimeout(() => { $($el.querySelector('select')).select2({ placeholder: '-- Ketik nama vendor atau daerah --', width: '100%' }); }, 100)">
+                                            <div class="flex-1 min-w-0" x-init="setTimeout(() => { $($el.querySelector('select')).select2({ placeholder: '-- Ketik nama vendor atau daerah --', width: '100%' }); }, 100)">
                                                 <select name="vendor_ids[]" class="w-full text-sm" required>
                                                     <option value=""></option>
                                                     @foreach (\App\Models\Vendor::getAvailableForClient($client) as $vnd)
@@ -147,7 +147,7 @@
 
                                         <template x-for="(v, index) in vendors" :key="v.id">
                                             <div class="flex gap-2 mb-3">
-                                                <div class="flex-1" x-init="setTimeout(() => { 
+                                                <div class="flex-1 min-w-0" x-init="setTimeout(() => { 
                                                     let sel = $($el.querySelector('select'));
                                                     sel.select2({ placeholder: '-- Ketik nama vendor atau daerah --', width: '100%' });
                                                     if(v.val) { sel.val(v.val).trigger('change'); }
@@ -361,8 +361,19 @@
                 </div>
 
                 <div class="bg-white border border-[#F5EBE1] shadow-sm rounded-xl p-6">
-                    <h3 class="font-black text-[#4A3018] mb-4 text-lg border-b pb-2 uppercase tracking-wide">Rekomendasi
-                        Sistem Berdasarkan Lokasi</h3>
+                    <div class="flex items-center justify-between mb-4 border-b pb-2">
+                        <h3 class="font-black text-[#4A3018] text-lg uppercase tracking-wide">Rekomendasi
+                            Sistem Berdasarkan Lokasi</h3>
+                        @if(isset($tierInfo))
+                            @php
+                                $tierColors = [1 => 'bg-amber-700 text-yellow-200', 2 => 'bg-[#8B5A2B] text-white', 3 => 'bg-[#D4A373] text-[#4A3018]'];
+                                $tierColor  = $tierColors[$tierInfo['tier']] ?? $tierColors[2];
+                            @endphp
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider {{ $tierColor }}">
+                                Tier {{ $tierInfo['tier'] }} &mdash; {{ $tierInfo['label'] }}
+                            </span>
+                        @endif
+                    </div>
 
                     @forelse($rekomendasiPerKategori as $kategori => $vendors)
                         <div class="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-4 shadow-sm">
@@ -372,23 +383,38 @@
                             </h4>
                             <div class="grid grid-cols-1 gap-2">
                                 @forelse ($vendors as $index => $v)
+                                    @php $isChallenger = is_null($v->rating); @endphp
                                     <div
-                                        class="flex items-center justify-between border border-gray-200 p-2.5 rounded bg-white hover:border-[#D4A373] transition-colors">
+                                        class="flex items-center justify-between border p-2.5 rounded bg-white transition-colors
+                                              {{ $isChallenger ? 'border-[#D4A373] border-l-4' : 'border-gray-200 hover:border-[#D4A373]' }}">
                                         <div>
                                             <p class="font-bold text-[#4A3018] text-sm">#{{ $index + 1 }}.
                                                 {{ $v->nama_vendor }}</p>
                                             <p class="text-[11px] text-green-700 font-bold mt-0.5">Rp
                                                 {{ $v->harga ? number_format($v->harga, 0, ',', '.') : 'Harga Belum Diatur' }}
                                             </p>
+                                            @if ($isChallenger)
+                                                <span class="inline-block px-2 py-0.5 text-[9px] font-bold text-[#E65100] bg-orange-50 border border-orange-200 rounded mt-1">
+                                                    Exclusive New Partner
+                                                </span>
+                                            @else
+                                                <span class="inline-block px-2 py-0.5 text-[9px] font-bold text-green-800 bg-green-50 border border-green-200 rounded mt-1">
+                                                    Proven Vendor
+                                                </span>
+                                            @endif
                                             @if(isset($v->warning_status))
                                                 <span class="inline-block px-2 py-0.5 text-[9px] font-bold text-white bg-red-600 rounded mt-1">
-                                                    ⚠️ {{ $v->warning_status }}
+                                                    &#9888; {{ $v->warning_status }}
                                                 </span>
                                             @endif
                                         </div>
                                         <div class="text-right">
-                                            <p class="text-sm font-bold text-yellow-600">Rating:
-                                                {{ number_format($v->rating, 1) }} / 5.0</p>
+                                            @if (!$isChallenger)
+                                                <p class="text-sm font-bold text-yellow-600">Rating:
+                                                    {{ number_format($v->rating, 1) }} / 5.0</p>
+                                            @else
+                                                <p class="text-xs font-medium text-gray-400 italic">Belum Dinilai</p>
+                                            @endif
                                         </div>
                                     </div>
                                 @empty

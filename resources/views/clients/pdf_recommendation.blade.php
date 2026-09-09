@@ -43,6 +43,30 @@
             color: #4A3018;
         }
 
+        .tier-badge {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .tier-1 {
+            background-color: #4A3018;
+            color: #FFD700;
+        }
+
+        .tier-2 {
+            background-color: #8B5A2B;
+            color: #ffffff;
+        }
+
+        .tier-3 {
+            background-color: #D4A373;
+            color: #4A3018;
+        }
+
         .kebutuhan-box {
             font-family: DejaVu Sans Mono, monospace;
             font-size: 11px;
@@ -82,6 +106,11 @@
             background-color: #fefefe;
         }
 
+        .vendor-card.challenger {
+            border-left: 4px solid #D4A373;
+            background-color: #FFFDF9;
+        }
+
         .vendor-header {
             border-bottom: 1px solid #edd9c0;
             padding-bottom: 6px;
@@ -107,6 +136,26 @@
             border-radius: 8px;
             font-size: 11px;
             font-weight: bold;
+        }
+
+        .slot-label {
+            font-size: 10px;
+            font-weight: bold;
+            padding: 1px 6px;
+            border-radius: 6px;
+            letter-spacing: 0.3px;
+        }
+
+        .slot-proven {
+            background-color: #E8F5E9;
+            color: #2E7D32;
+            border: 1px solid #A5D6A7;
+        }
+
+        .slot-challenger {
+            background-color: #FFF3E0;
+            color: #E65100;
+            border: 1px solid #FFCC80;
         }
 
         .rating {
@@ -210,29 +259,42 @@
         Tanggal Acara: {{ \Carbon\Carbon::parse($client->tanggal_acara)->translatedFormat('d F Y') }}<br>
         Tempat Acara : {{ $client->tempat_acara }}<br>
         @if($client->budget)
-        Anggaran &nbsp;&nbsp;&nbsp;: Rp {{ number_format($client->budget, 0, ',', '.') }}<br>
+        Anggaran &nbsp;&nbsp;&nbsp;: Rp {{ number_format($client->budget, 0, ',', '.') }}
+        &nbsp;&nbsp;
+        @php
+            $tierClass = 'tier-' . ($tierInfo['tier'] ?? 2);
+            $tierLabel = 'Tier ' . ($tierInfo['tier'] ?? 2) . ' — ' . ($tierInfo['label'] ?? 'Regular');
+        @endphp
+        <span class="tier-badge {{ $tierClass }}">{{ $tierLabel }}</span><br>
         @endif
         <br>
         <strong>Detail Kebutuhan Klien:</strong>
         <div class="kebutuhan-box">{{ $client->kebutuhan_klien }}</div>
     </div>
 
-    <p class="section-title">Rekomendasi Vendor Berdasarkan Kebutuhan &amp; Lokasi</p>
+    <p class="section-title">Top-3 Curated Shortlist &mdash; Rekomendasi Vendor Berdasarkan Kebutuhan &amp; Lokasi</p>
 
     @if (!empty($rekomendasiPerKategori))
         @foreach ($rekomendasiPerKategori as $kategori => $vendors)
             <div class="kategori-title">
-                Kategori: {{ $kategori }} &nbsp;&mdash;&nbsp; Top {{ $vendors->count() }} Vendor
+                Kategori: {{ $kategori }} &nbsp;&mdash;&nbsp; Top-3 Curated Shortlist
             </div>
 
             @foreach ($vendors as $index => $vendor)
-                <div class="vendor-card">
+                @php $isChallenger = is_null($vendor->rating); @endphp
+                <div class="vendor-card {{ $isChallenger ? 'challenger' : '' }}">
                     <div class="vendor-header">
                         <p class="vendor-title">#{{ $index + 1 }} &mdash; {{ $vendor->nama_vendor }}</p>
                         <p class="vendor-meta">
                             <span class="badge">{{ $vendor->kategori_jasa }}</span>
                             &nbsp;&nbsp;
-                            <span class="rating">&#9733; {{ number_format($vendor->rating, 1) }} / 5.0</span>
+                            @if ($isChallenger)
+                                <span class="slot-label slot-challenger">Exclusive New Partner</span>
+                            @else
+                                <span class="slot-label slot-proven">Proven Vendor</span>
+                                &nbsp;&nbsp;
+                                <span class="rating">&#9733; {{ number_format($vendor->rating, 1) }} / 5.0</span>
+                            @endif
                             @if (isset($vendor->warning_status))
                                 &nbsp;&nbsp;<span class="warning-tag">&#9888; {{ $vendor->warning_status }}</span>
                             @endif

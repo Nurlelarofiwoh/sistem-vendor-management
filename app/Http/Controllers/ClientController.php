@@ -12,6 +12,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ClientController extends Controller
 {
@@ -65,12 +67,23 @@ class ClientController extends Controller
     // ==========================================
     // 4. PDF REKOMENDASI (Auto-Generate)
     // ==========================================
-    public function downloadRecommendationPdf($id): \Symfony\Component\HttpFoundation\Response
+    public function downloadRecommendationPdf($id): Response
     {
+        // Guard: PDF hanya merender maks. 3 vendor per kategori — aman dari memory timeout.
+        ini_set('memory_limit', '256M');
+        set_time_limit(60);
+
         $client = Client::findOrFail($id);
         $rekomendasiPerKategori = $this->buildRekomendasiPerKategori($client);
+        $tierInfo = Vendor::exposeTierInfo((float) ($client->budget ?? 0));
 
-        $pdf = Pdf::loadView('clients.pdf_recommendation', compact('client', 'rekomendasiPerKategori'));
+        $pdf = Pdf::loadView('clients.pdf_recommendation', compact('client', 'rekomendasiPerKategori', 'tierInfo'))
+            ->setPaper('a4')
+            ->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => false,
+                'defaultFont' => 'DejaVu Sans',
+            ]);
 
         return $pdf->download('Rekomendasi_Vendor_'.str_replace(' ', '_', $client->nama_klien).'.pdf');
     }
@@ -207,11 +220,12 @@ class ClientController extends Controller
     // ==========================================
     // 8. FUNGSI READ-ONLY DETAIL KLIEN
     // ==========================================
-    public function show(Client $client): \Illuminate\View\View
+    public function show(Client $client): View
     {
         $rekomendasiPerKategori = $this->buildRekomendasiPerKategori($client);
+        $tierInfo = Vendor::exposeTierInfo((float) ($client->budget ?? 0));
 
-        return view('clients.show', compact('client', 'rekomendasiPerKategori'));
+        return view('clients.show', compact('client', 'rekomendasiPerKategori', 'tierInfo'));
     }
 
     // ==========================================
@@ -237,8 +251,8 @@ class ClientController extends Controller
 
         $rekomendasiPerKategori = [];
         foreach ($kategoriDiminta as $kat) {
-            // Gunakan lokasi klien — Vendor model menangani fallback lokasi secara cerdas
-            $vendors = Vendor::getRecommendationsForClient($client, $kat, $client->tempat_acara);
+            // Algoritma Top-N Curated Shortlisting: maks. 3 vendor per kategori
+            $vendors = Vendor::getTopNShortlist($client, $kat, $client->tempat_acara);
             if ($vendors->isNotEmpty()) {
                 $rekomendasiPerKategori[$kat] = $vendors;
             }

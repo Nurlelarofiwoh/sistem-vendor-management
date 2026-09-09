@@ -73,14 +73,23 @@
                             <td class="px-6 py-4">
                                 <p class="font-bold text-lg text-[#4A3018]">{{ $vendor->nama_vendor }}</p>
                                 @php
-                                    $r = (float) $vendor->rating;
-                                    $ratingColor = $r >= 4.5 ? 'text-yellow-600' : ($r >= 3.5 ? 'text-orange-500' : ($r >= 2.0 ? 'text-red-400' : 'text-red-600'));
-                                    $stars = str_repeat('★', round($r)) . str_repeat('☆', 5 - round($r));
+                                    $isNew     = is_null($vendor->rating);
+                                    $r         = $isNew ? 0 : (float) $vendor->rating;
+                                    $ratingColor = $isNew
+                                        ? 'text-gray-400'
+                                        : ($r >= 4.5 ? 'text-yellow-600' : ($r >= 3.5 ? 'text-orange-500' : ($r >= 2.0 ? 'text-red-400' : 'text-red-600')));
+                                    $stars = $isNew
+                                        ? '☆☆☆☆☆'
+                                        : (str_repeat('★', round($r)) . str_repeat('☆', 5 - round($r)));
                                 @endphp
                                 <p class="text-xs font-bold {{ $ratingColor }} mt-1 flex items-center gap-1.5 flex-wrap">
-                                    {{ $stars }} {{ number_format($r, 1) }} / 5.0
-                                    @if($vendor->total_review > 0)
-                                        <span class="text-gray-400 font-normal">({{ $vendor->total_review }} ulasan)</span>
+                                    @if ($isNew)
+                                        <span class="text-gray-400 italic font-normal">Belum Dinilai</span>
+                                    @else
+                                        {{ $stars }} {{ number_format($r, 1) }} / 5.0
+                                        @if($vendor->total_review > 0)
+                                            <span class="text-gray-400 font-normal">({{ $vendor->total_review }} ulasan)</span>
+                                        @endif
                                     @endif
                                     @if($vendor->is_new_vendor)
                                         <span class="px-1.5 py-0.5 text-[10px] font-bold text-blue-700 bg-blue-100 border border-blue-200 rounded">Baru</span>
@@ -127,6 +136,34 @@
                                     <span
                                         class="px-3 py-1 text-[11px] font-bold text-red-700 bg-red-100 border border-red-200 rounded-full mb-2 inline-block">Nonaktif</span>
                                 @endif
+
+                                <div class="mt-1 mb-2">
+                                    @php
+                                        $sk = $vendor->status_kemitraan ?? 'Vendor Baru';
+                                        $skConfig = match($sk) {
+                                            'Preferred' => ['class' => 'text-indigo-700 bg-indigo-50 border-indigo-200'],
+                                            'Under Review' => ['class' => 'text-red-700 bg-red-50 border-red-200'],
+                                            default => ['class' => 'text-gray-700 bg-gray-50 border-gray-200'],
+                                        };
+                                    @endphp
+                                    <span class="px-2 py-0.5 text-[10px] font-bold border rounded {{ $skConfig['class'] }}">
+                                        {{ $sk }}
+                                    </span>
+                                </div>
+
+                                <div class="mt-2">
+                                    @php
+                                        $sf = $vendor->skor_finansial ?? 3;
+                                        $sfConfig = match($sf) {
+                                            1 => ['label' => 'Sengketa', 'class' => 'text-red-700 bg-red-50 border-red-200'],
+                                            2 => ['label' => 'Warning',  'class' => 'text-amber-700 bg-amber-50 border-amber-200'],
+                                            default => ['label' => 'Lancar', 'class' => 'text-green-700 bg-green-50 border-green-200'],
+                                        };
+                                    @endphp
+                                    <span class="px-2 py-0.5 text-[10px] font-bold border rounded {{ $sfConfig['class'] }}">
+                                        Komisi: {{ $sfConfig['label'] }}
+                                    </span>
+                                </div>
 
                                 <div class="mt-1">
                                     @if ($vendor->tanggal_kontrak_habis)

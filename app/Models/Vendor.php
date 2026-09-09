@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class Vendor extends Model
@@ -22,6 +23,7 @@ class Vendor extends Model
         'proposal_file',       // Path file PDF proposal dari form registrasi publik
         'detail_spesifikasi',
         'rating',
+        'skor_finansial',      // Kepatuhan komisi: 3=Lancar, 2=Warning, 1=Sengketa
         'is_new_vendor',
         'status_aktif',
         'status_approval',     // Alur disposisi: Pending → Ditinjau → Approved / Ditolak
@@ -30,6 +32,7 @@ class Vendor extends Model
         'tanggal_ditolak',     // Tanggal penolakan MoU oleh Manager Commercial
         'tanggal_kontrak_habis',
         'total_review',
+        'status_kemitraan',    // Status kemitraan vendor ('Vendor Baru', 'Preferred', 'Under Review')
     ];
 
     protected function casts(): array
@@ -38,6 +41,7 @@ class Vendor extends Model
             'detail_spesifikasi' => 'array',
             'status_aktif' => 'boolean',
             'rating' => 'decimal:1',
+            'skor_finansial' => 'integer',
             'is_new_vendor' => 'boolean',
             'harga' => 'decimal:2',
             'tanggal_ditolak' => 'datetime',
@@ -47,9 +51,11 @@ class Vendor extends Model
     protected static function booted(): void
     {
         static::creating(function ($vendor) {
-            // Default rating untuk vendor baru jika belum diisi
-            if (! isset($vendor->rating) || $vendor->rating == 0) {
-                $vendor->rating = 4.5;
+            // Vendor baru selalu NULL — penanda "belum ada data penilaian".
+            // Rating baru akan terbentuk otomatis setelah proyek pertama selesai
+            // melalui recalculateRatingAndNewStatus().
+            if (! isset($vendor->rating)) {
+                $vendor->rating = null;
             }
             // Hanya set is_new_vendor = true jika belum di-set secara eksplisit.
             // Ini memungkinkan seeder atau admin mengisi nilai false untuk vendor berpengalaman.
@@ -61,45 +67,44 @@ class Vendor extends Model
 
     public function recalculateRatingAndNewStatus(): void
     {
-        $completedProjects = DB::table('projects')
-            ->join('client_vendor', function ($join) {
-                $join->on('projects.client_id', '=', 'client_vendor.client_id')
-                    ->on('projects.vendor_id', '=', 'client_vendor.vendor_id');
-            })
-            ->where('projects.vendor_id', $this->id)
-            ->whereIn('projects.status_proyek', ['Finish Event', 'Transaksi Komplit'])
-            ->select('client_vendor.skor_survey_klien')
-            ->get();
-
-        $n = $completedProjects->count();
+        $reviews = $this->reviews()->get();
+        $n = $reviews->count();
 
         if ($n === 0) {
-            $this->rating = 4.5;
+            // NULL = belum ada proyek selesai yang direview, tampil sebagai Challenger slot.
+            $this->rating = null;
             $this->is_new_vendor = true;
+            $this->status_kemitraan = 'Vendor Baru';
         } else {
-            $sumScores = 0;
-            foreach ($completedProjects as $p) {
-                $sumScores += $p->skor_survey_klien ?? 3.0; // Fallback to 3.0 if null
-            }
-            $this->rating = round($sumScores / $n, 1);
+            $sumScores = $reviews->sum('score');
+            $avgRating = round($sumScores / $n, 1);
+            $this->rating = $avgRating;
             $this->is_new_vendor = false;
+
+            if ($avgRating < 3.5) {
+                $this->status_kemitraan = 'Under Review';
+            } else {
+                $this->status_kemitraan = 'Preferred';
+            }
         }
         $this->save();
     }
 
     public static function getAvailableForClient(Client $client)
     {
-        $isTier1 = $client->budget >= 50000000;
+        $tierInfo = self::determineTierInfo((float) ($client->budget ?? 0));
 
-        $query = self::where('status_aktif', true);
+        $query = self::where('status_aktif', true)
+            ->where('status_approval', 'Approved');
 
-        if ($isTier1) {
+        // Tier 1: hanya vendor berpengalaman di daftar pilihan manual CS
+        if ($tierInfo['tier'] === 1) {
             $query->where('is_new_vendor', false);
         }
 
-        // Try getting vendors within budget
-        $vendors = (clone $query)->when($client->budget, function ($q) use ($client) {
-            return $q->where('harga', '<=', $client->budget);
+        // Try getting vendors within budget / tier ceiling
+        $vendors = (clone $query)->when($tierInfo['harga_max'], function ($q) use ($tierInfo) {
+            return $q->where('harga', '<=', $tierInfo['harga_max']);
         })->orderBy('kategori_jasa')->get();
 
         // If empty and budget is set, fallback to closest above budget
@@ -117,95 +122,122 @@ class Vendor extends Model
         return $vendors;
     }
 
-    public static function getRecommendationsForClient(Client $client, ?string $category = null, ?string $location = null)
-    {
-        $isTier1 = $client->budget >= 50000000;
+    /**
+     * Algoritma Top-N Curated Shortlisting dengan Challenger Slot.
+     *
+     * Mengembalikan MAKSIMAL 3 vendor per kategori per lokasi:
+     *   - 2 slot "Proven Vendors" : rating IS NOT NULL, orderBy rating DESC
+     *   - 1 slot "Challenger"     : rating IS NULL, orderBy harga ASC (vendor baru termurah)
+     *
+     * EKSKLUSI FINANSIAL: vendor dengan skor_finansial = 1 (Sengketa) dibuang
+     * dari seluruh query, tidak peduli nilai rating-nya.
+     *
+     * Tiga level fallback lokasi:
+     *   Level 1 → exact lokasi ("Jakarta Selatan")
+     *   Level 2 → city keyword saja ("Jakarta")
+     *   Level 3 → tanpa filter lokasi (universal fallback)
+     */
+    public static function getTopNShortlist(
+        Client $client,
+        string $kategori,
+        ?string $lokasi
+    ): Collection {
+        $tierInfo = self::determineTierInfo((float) ($client->budget ?? 0));
 
         /**
-         * Helper: jalankan query rekomendasi dengan keyword lokasi tertentu.
-         * Mengikuti urutan prioritas:
-         *   1. Tier-1 (berpengalaman) + dalam budget
-         *   2. Semua vendor (termasuk baru) + dalam budget
-         *   3. Vendor di atas budget (dengan warning)
+         * Jalankan shortlisting pada satu keyword lokasi tertentu.
+         * Return Collection (bisa kosong); caller mencoba level berikutnya jika kosong.
          */
-        $queryWithLocation = function (?string $keyword) use ($client, $category, $isTier1) {
-            $base = self::where('status_aktif', true);
+        $shortlistForLocation = function (?string $keyword) use ($kategori, $tierInfo): Collection {
+            /** @var Builder $base */
+            $base = self::where('status_aktif', true)
+                ->where('status_approval', 'Approved')
+                ->where('kategori_jasa', $kategori)
+                ->where('skor_finansial', '>', 1); // Eksklusi finansial: buang vendor Sengketa
 
-            if ($category) {
-                $base->where('kategori_jasa', $category);
-            }
-
+            // Filter lokasi jika keyword tersedia
             if ($keyword) {
                 $base->where('alamat', 'LIKE', '%'.$keyword.'%');
             }
 
-            // Prioritas 1: Tier-1 + dalam budget
-            if ($isTier1) {
-                $vendors = (clone $base)
-                    ->where('is_new_vendor', false)
-                    ->when($client->budget, fn ($q) => $q->where('harga', '<=', $client->budget))
-                    ->orderBy('rating', 'desc')
-                    ->limit(3)
-                    ->get();
-
-                if ($vendors->isNotEmpty()) {
-                    return $vendors;
-                }
+            // Filter harga sesuai tier budget klien
+            if ($tierInfo['harga_max'] !== null) {
+                $base->where('harga', '<=', $tierInfo['harga_max']);
             }
 
-            // Prioritas 2: Semua vendor (termasuk baru) + dalam budget
-            $vendors = (clone $base)
-                ->when($client->budget, fn ($q) => $q->where('harga', '<=', $client->budget))
+            // Tier 1: Proven slot hanya dari vendor berpengalaman
+            $provenBase = clone $base;
+            if ($tierInfo['tier'] === 1) {
+                $provenBase->where('is_new_vendor', false);
+            }
+
+            // Slot A — 2 Proven Vendors: rating IS NOT NULL, rating tertinggi
+            $provenVendors = (clone $provenBase)
+                ->whereNotNull('rating')
                 ->orderBy('rating', 'desc')
-                ->limit(3)
+                ->limit(2)
                 ->get();
 
-            if ($vendors->isNotEmpty()) {
-                return $vendors;
-            }
+            // Slot B — 1 Challenger: rating IS NULL, harga terendah (deterministik)
+            // Menggunakan harga ASC agar output stabil dan tidak berubah tiap reload.
+            $challengerVendor = (clone $base)
+                ->whereNull('rating')
+                ->orderBy('harga', 'asc')
+                ->limit(1)
+                ->get();
 
-            // Prioritas 3: Vendor di atas budget (sebagai alternatif dengan peringatan)
-            if ($client->budget) {
-                $vendors = (clone $base)
-                    ->where('harga', '>', $client->budget)
-                    ->orderBy('harga', 'asc')
-                    ->orderBy('rating', 'desc')
-                    ->limit(3)
-                    ->get();
-
-                foreach ($vendors as $v) {
-                    $v->warning_status = 'Melebihi Anggaran';
-                }
-
-                if ($vendors->isNotEmpty()) {
-                    return $vendors;
-                }
-            }
-
-            return collect();
+            return $provenVendors->merge($challengerVendor)->take(3);
         };
 
-        // --- LEVEL 1: Exact location match (misal: "Jakarta Pusat") ---
-        if ($location) {
-            $vendors = $queryWithLocation($location);
-
-            if ($vendors->isNotEmpty()) {
-                return $vendors;
+        // Level 1: Exact location match
+        if ($lokasi) {
+            $result = $shortlistForLocation($lokasi);
+            if ($result->isNotEmpty()) {
+                return $result;
             }
 
-            // --- LEVEL 2: Broad city keyword (misal: "Jakarta" dari "Jakarta Pusat") ---
-            $cityKeyword = explode(' ', trim($location))[0];
-            if ($cityKeyword !== $location) {
-                $vendors = $queryWithLocation($cityKeyword);
-
-                if ($vendors->isNotEmpty()) {
-                    return $vendors;
+            // Level 2: City keyword (kata pertama dari lokasi)
+            $cityKeyword = explode(' ', trim($lokasi))[0];
+            if ($cityKeyword !== $lokasi) {
+                $result = $shortlistForLocation($cityKeyword);
+                if ($result->isNotEmpty()) {
+                    return $result;
                 }
             }
         }
 
-        // --- LEVEL 3: Tanpa filter lokasi (fallback universal) ---
-        return $queryWithLocation(null);
+        // Level 3: Tanpa filter lokasi (universal fallback)
+        return $shortlistForLocation(null);
+    }
+
+    /**
+     * Public proxy untuk mengekspos informasi tier ke luar model (Controller/View).
+     * Dipisah agar `determineTierInfo` tetap private untuk keperluan internal.
+     *
+     * @return array{tier: int, label: string, harga_max: float|null}
+     */
+    public static function exposeTierInfo(float $budget): array
+    {
+        return self::determineTierInfo($budget);
+    }
+
+    private static function determineTierInfo(float $budget): array
+    {
+        if ($budget <= 0) {
+            // Tanpa budget: tidak ada batas harga, tampilkan semua
+            return ['tier' => 2, 'label' => 'Regular', 'harga_max' => null];
+        }
+
+        if ($budget > 150_000_000) {
+            return ['tier' => 1, 'label' => 'Premium', 'harga_max' => $budget];
+        }
+
+        if ($budget >= 25_000_000) {
+            return ['tier' => 2, 'label' => 'Regular', 'harga_max' => $budget];
+        }
+
+        // Tier 3: budget < 25 juta — batasi vendor di bawah 25 juta
+        return ['tier' => 3, 'label' => 'Standard', 'harga_max' => 25_000_000];
     }
 
     // =========================================================================
@@ -237,8 +269,60 @@ class Vendor extends Model
     }
 
     // =========================================================================
-    // RELASI
+    // SCOPES — Filter berdasarkan Skor Finansial (Kepatuhan Komisi)
     // =========================================================================
+
+    /**
+     * Vendor dalam status Sengketa — telat bayar komisi > 90 hari.
+     * Vendor ini DIEKSKLUSI dari shortlisting rekomendasi klien.
+     */
+    public function scopeSengketa(Builder $query): Builder
+    {
+        return $query->where('skor_finansial', 1);
+    }
+
+    /** Vendor yang mendapat peringatan keterlambatan pembayaran komisi. */
+    public function scopeWarningFinansial(Builder $query): Builder
+    {
+        return $query->where('skor_finansial', 2);
+    }
+
+    /** Vendor dengan kepatuhan komisi terbaik — pembayaran lancar. */
+    public function scopeLancar(Builder $query): Builder
+    {
+        return $query->where('skor_finansial', 3);
+    }
+
+    // =========================================================================
+    // RELASI & ACCESSOR
+    // =========================================================================
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function getHariTelatKomisiAttribute(): int
+    {
+        // Hitung tagihan komisi yang paling lama telat (yang belum lunas)
+        $unpaidCommissions = DB::table('client_vendor')
+            ->join('projects', 'client_vendor.client_id', '=', 'projects.client_id')
+            ->where('client_vendor.vendor_id', $this->id)
+            ->where('client_vendor.status_komisi', '!=', 'Lunas')
+            ->whereNotNull('projects.tanggal_finish_event')
+            ->select('projects.tanggal_finish_event')
+            ->get();
+
+        $maxLateDays = 0;
+        foreach ($unpaidCommissions as $commission) {
+            $days = now()->diffInDays($commission->tanggal_finish_event);
+            if ($days > $maxLateDays) {
+                $maxLateDays = $days;
+            }
+        }
+
+        return $maxLateDays;
+    }
 
     public function documents()
     {

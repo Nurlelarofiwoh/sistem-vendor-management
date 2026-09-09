@@ -9,12 +9,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
- // 1. TAMBAHKAN BARIS INI DI SINI
+
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable; // 2. TAMBAHKAN 'HasRoles' DI DALAM SINI
+    use HasFactory, HasRoles, Notifiable; 
 
     /**
      * The attributes that are mass assignable.

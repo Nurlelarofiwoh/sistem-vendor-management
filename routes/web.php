@@ -10,6 +10,7 @@ use App\Http\Controllers\OperationalController;
 use App\Http\Controllers\PartnershipReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\TechnicalMeetingController;
 use App\Http\Controllers\VendorApprovalController;
 use App\Http\Controllers\VendorController;
@@ -187,6 +188,7 @@ Route::middleware('auth')->group(function () {
     // Alur Approval Berjenjang: Diakses oleh Partnership & Manager Commercial
     Route::middleware(['role:partnership|manager_comercial'])->group(function () {
         Route::get('/vendor-approval', [VendorApprovalController::class, 'index'])->name('vendor.approval.index');
+        Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
     });
 
 });

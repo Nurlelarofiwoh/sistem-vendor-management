@@ -123,6 +123,16 @@
                                         </div>
                                     </div>
 
+                                    {{-- Kolom Tanya Jawab / Ulasan khusus Vendor ini --}}
+                                    <div class="mt-5 pt-5 border-t border-gray-200">
+                                        <label class="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">
+                                            4. Ulasan & Komentar untuk {{ $vendor->nama_vendor }}:
+                                        </label>
+                                        <textarea name="komentar[{{ $vendor->id }}]" rows="3"
+                                            class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#8B5A2B] focus:border-[#8B5A2B] outline-none resize-none placeholder-gray-400"
+                                            placeholder="Tulis kritik, saran, atau komentar Anda mengenai vendor ini..."></textarea>
+                                    </div>
+
                                 </div>
                             @endforeach
                         </div>
@@ -132,15 +142,7 @@
                         </div>
                     @endif
 
-                    {{-- Kolom Tanya Jawab / Ulasan (Q&A) --}}
-                    <div class="mt-8 pt-6 border-t border-gray-200">
-                        <label class="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">
-                            4. Saran & Masukan Tambahan untuk PT Liza Makmur Mandiri (Kolom Tanya Jawab/Komentar):
-                        </label>
-                        <textarea name="komentar" rows="4"
-                            class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#8B5A2B] focus:border-[#8B5A2B] outline-none resize-none placeholder-gray-400"
-                            placeholder="Tulis kritik, saran, atau komentar Anda di sini..."></textarea>
-                    </div>
+                    {{-- (Kolom komentar umum dihapus karena sudah spesifik per vendor) --}}
 
                     <div class="mt-8">
                         <button type="submit" id="btnSubmit"

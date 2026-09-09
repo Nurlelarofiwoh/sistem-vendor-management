@@ -714,6 +714,16 @@
 </footer>
 
 <script>
+    // Tampilkan notifikasi error dari session jika ada (misal error 419 session expired)
+    @if(session('error'))
+        Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: '{{ session('error') }}',
+            confirmButtonColor: '#8B5A2B'
+        });
+    @endif
+
     // Tampilkan nama file yang dipilih pada file upload area dan validasi ukuran
     const proposalFileInput = document.getElementById('proposal_file');
     if (proposalFileInput) {

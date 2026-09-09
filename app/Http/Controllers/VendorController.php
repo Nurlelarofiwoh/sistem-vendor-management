@@ -27,8 +27,9 @@ class VendorController extends Controller
             $query->where('is_new_vendor', $request->vendor_baru === 'ya');
         }
 
-        // Tampilkan vendor terdaftar dengan pagination 15 item
-        $vendors = $query->orderBy('rating', 'desc')->paginate(15)->withQueryString();
+        // Vendor proven (punya rating) muncul di atas, vendor baru (NULL) di bawah.
+        // NULLS LAST agar tidak mengacaukan urutan proven vendors.
+        $vendors = $query->orderByRaw('rating IS NULL ASC, rating DESC')->paginate(15)->withQueryString();
 
         $kategoriList = Vendor::distinct()->pluck('kategori_jasa')->sort();
         $daerahList = [
@@ -87,8 +88,9 @@ class VendorController extends Controller
             'harga' => $request->harga,
             'link_portofolio' => $request->link_portofolio,
             'detail_spesifikasi' => $request->detail,
-            'rating' => 0.00, // Default vendor baru
-            'status_aktif' => true, // Default vendor baru
+            'rating' => null, // NULL = belum ada penilaian (bukan 0)
+            'skor_finansial' => 3,    // Default: Lancar
+            'status_aktif' => true,
         ]);
 
         return redirect()->route('vendors.index')->with('success', 'Data Vendor berhasil ditambahkan!');
@@ -124,11 +126,12 @@ class VendorController extends Controller
             'email' => 'required|email|max:255',
             'alamat' => 'nullable|string',
             'range_harga' => 'nullable|string|max:255',
-            'link_portofolio' => 'nullable|url',       // <--- Validasi link baru
-            'detail' => 'nullable|array',     // <--- Validasi array JSON baru
-            'rating' => 'required|numeric|min:0|max:5',
+            'link_portofolio' => 'nullable|url',
+            'detail' => 'nullable|array',
+            'rating' => 'nullable|numeric|min:0|max:5',
+            'skor_finansial' => 'nullable|integer|in:1,2,3',
             'status_aktif' => 'required|boolean',
-            'tanggal_kontrak_habis' => 'nullable|date', // <--- Validasi tanggal baru
+            'tanggal_kontrak_habis' => 'nullable|date',
         ]);
 
         // Mapping manual agar 'detail' masuk ke 'detail_spesifikasi'
@@ -138,12 +141,13 @@ class VendorController extends Controller
             'email' => $request->email,
             'no_telepon' => $request->no_telepon,
             'alamat' => $request->alamat,
-            'harga' => $request->harga,                 // <--- Diperbarui (sebelumnya range_harga)
+            'harga' => $request->harga,
             'link_portofolio' => $request->link_portofolio,
             'detail_spesifikasi' => $request->detail,
             'rating' => $request->rating,
+            'skor_finansial' => $request->skor_finansial ?? $vendor->skor_finansial,
             'status_aktif' => $request->status_aktif,
-            'tanggal_kontrak_habis' => $request->tanggal_kontrak_habis, // <--- Ditambahkan agar kalender tersimpan
+            'tanggal_kontrak_habis' => $request->tanggal_kontrak_habis,
         ]);
 
         return redirect()->route('vendors.index')->with('success', 'Data Vendor berhasil diperbarui!');

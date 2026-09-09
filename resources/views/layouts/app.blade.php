@@ -81,6 +81,10 @@
                         class="flex items-center p-3 transition-colors rounded-lg hover:bg-[#8B5A2B] {{ request()->routeIs('partnership.report.*') ? 'bg-[#8B5A2B] text-white font-bold' : '' }}">
                         <span>Laporan Terpadu</span>
                     </a>
+                    <a href="{{ route('reviews.index') }}"
+                        class="flex items-center p-3 transition-colors rounded-lg hover:bg-[#8B5A2B] {{ request()->routeIs('reviews.index') ? 'bg-[#8B5A2B] text-white font-bold' : '' }}">
+                        <span>Ulasan & Survey</span>
+                    </a>
                 @endhasrole
                 @hasrole('finance')
                     <a href="{{ route('finance.index') }}"
@@ -105,6 +109,10 @@
                     <a href="{{ route('manager.logs') }}"
                         class="flex items-center p-3 transition-colors rounded-lg hover:bg-[#8B5A2B] {{ request()->routeIs('manager.logs') ? 'bg-[#8B5A2B] text-white font-bold' : '' }}">
                         <span>Log Aktivitas CS</span>
+                    </a>
+                    <a href="{{ route('reviews.index') }}"
+                        class="flex items-center p-3 transition-colors rounded-lg hover:bg-[#8B5A2B] {{ request()->routeIs('reviews.index') ? 'bg-[#8B5A2B] text-white font-bold' : '' }}">
+                        <span>Ulasan & Survey</span>
                     </a>
                 @endhasrole
 

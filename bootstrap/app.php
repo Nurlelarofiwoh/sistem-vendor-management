@@ -14,6 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Abaikan verifikasi CSRF untuk rute publik pendaftaran vendor agar tidak terjadi error 419 jika sesi expired
+        $middleware->validateCsrfTokens(except: [
+            'daftar-vendor',
+            'daftar-vendor/*',
+        ]);
+
         // Mendaftarkan alias middleware Spatie
         $middleware->alias([
             'role' => RoleMiddleware::class,
@@ -22,5 +28,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Tangani error 419 (CSRF Token Mismatch) agar tidak muncul halaman blank 419
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            return redirect()->back()->withInput($request->except('_token'))->with('error', 'Sesi formulir Anda telah berakhir atau kedaluwarsa. Silakan coba kirim ulang.');
+        });
+        
+        // Tangani error Payload Too Large (misal file proposal kebesaran melebihi limit PHP)
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, \Illuminate\Http\Request $request) {
+            return redirect()->back()->withInput($request->except('_token'))->with('error', 'Ukuran file terlalu besar melebihi batas maksimal server. Pastikan ukuran file proposal tidak melebihi 5MB.');
+        });
     })->create();

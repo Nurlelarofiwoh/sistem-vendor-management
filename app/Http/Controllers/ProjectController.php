@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\EvaluationMail;
 use App\Models\Project;
+use App\Models\Review;
 use App\Models\Vendor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,34 +75,51 @@ class ProjectController extends Controller
         $request->validate([
             'ratings' => 'required|array',
             'ratings.*' => 'required|numeric|min:1|max:5',
+            'komentar' => 'nullable|array',
+            'komentar.*' => 'nullable|string',
         ]);
 
         $ratings = $request->ratings;
+        $komentarArray = $request->input('komentar', []);
         $client = $project->client;
 
-        // 1. Hitung skor rata-rata dari semua vendor yang dinilai klien
+        // 1. Hitung skor rata-rata untuk project
         $skorRata = count($ratings) > 0
             ? round(array_sum($ratings) / count($ratings), 1)
             : 3.0;
 
-        // 2. Simpan skor rata-rata ke project (digunakan RatingService saat komisi lunas)
         $project->update(['skor_evaluasi_klien' => $skorRata]);
 
-        // 3. Simpan skor individual per-vendor ke pivot untuk audit trail
+        // 2. Simpan ulasan ke tabel reviews dan hitung ulang rating vendor
         if ($client) {
             foreach ($ratings as $vendorId => $score) {
+                $komentarVendor = $komentarArray[$vendorId] ?? null;
+
+                // Simpan ke tbl_reviews
+                Review::create([
+                    'vendor_id' => (int) $vendorId,
+                    'project_id' => $project->id,
+                    'score' => (int) $score,
+                    'comment' => $komentarVendor,
+                ]);
+
+                // Simpan ke pivot untuk backward compatibility / log
                 DB::table('client_vendor')
                     ->where('client_id', $client->id)
                     ->where('vendor_id', (int) $vendorId)
                     ->update(['skor_survey_klien' => (float) $score]);
+
+                // Hitung ulang rating murni
+                $vendor = Vendor::find($vendorId);
+                if ($vendor) {
+                    $vendor->recalculateRatingAndNewStatus();
+                }
             }
         }
 
-        // 4. Kunci form agar tidak bisa diisi ulang, namun TOKEN TETAP DISIMPAN
-        //    agar link e-survey masih bisa diakses untuk keperluan demo/presentasi.
+        // 3. Kunci form
         $project->update([
             'is_evaluated' => true,
-            // evaluation_token sengaja tidak di-null-kan untuk keperluan presentasi
         ]);
 
         return redirect()->back()->with('success', 'Terima kasih! Penilaian Anda sangat berarti bagi pengembangan kualitas layanan PT Liza Makmur Mandiri.');

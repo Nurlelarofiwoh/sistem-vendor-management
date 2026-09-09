@@ -89,12 +89,10 @@ class FinanceKomisiController extends Controller
                 'tanggal_bayar_komisi' => now(),
             ]);
 
-        // 2. Jalankan kalkulasi Rating Murni hanya untuk vendor ini
-        $ratingBaru = $this->ratingService->hitungDanTerapkanRatingMurni(
-            $client->id,
-            $vendor->id,
-            $project->id
-        );
+        // 2. Kembalikan skor_finansial vendor ke 3 (Lancar)
+        // TO-DO: Jika skor_finansial sebelumnya adalah 1 (Sengketa), butuh manager approval
+        // sebelum dikembalikan ke 3 secara otomatis. Saat ini kita set ke 3 langsung.
+        $vendor->update(['skor_finansial' => 3]);
 
         // 3. Cek apakah semua vendor di event ini sudah lunas → Transaksi Komplit
         $totalVendor = DB::table('client_vendor')
@@ -115,7 +113,7 @@ class FinanceKomisiController extends Controller
 
         return back()->with(
             'success',
-            "✅ Komisi [{$vendor->nama_vendor}] berhasil ditandai Lunas! Rating Murni ditetapkan: ⭐ {$ratingBaru}"
+            "✅ Komisi [{$vendor->nama_vendor}] berhasil ditandai Lunas! Skor finansial dikembalikan ke Lancar."
         );
     }
 

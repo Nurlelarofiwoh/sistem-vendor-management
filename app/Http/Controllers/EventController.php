@@ -241,6 +241,40 @@ class EventController extends Controller
         // 6. FINANCE: Tutup Transaksi (Komisi Vendor Cair)
         // ==========================================
         if ($aksi === 'transaksi_komplit') {
+            $vendorId = $request->input('vendor_id');
+            if ($vendorId) {
+                $event->client->vendors()->updateExistingPivot($vendorId, [
+                    'status_komisi' => 'Lunas',
+                    'tanggal_bayar_komisi' => now(),
+                ]);
+
+                // Muat ulang data relasi untuk mendapatkan status pivot terbaru
+                $event->load('client.vendors');
+
+                $allLunas = true;
+                foreach ($event->client->vendors as $v) {
+                    if ($v->pivot->status_komisi !== 'Lunas') {
+                        $allLunas = false;
+                        break;
+                    }
+                }
+
+                $vendorName = $event->client->vendors->where('id', $vendorId)->first()->nama_vendor ?? 'Vendor';
+
+                if ($allLunas) {
+                    $event->update([
+                        'status_proyek' => 'Transaksi Komplit',
+                        'tanggal_komisi_dibayar' => now(),
+                    ]);
+                    $this->catatLog('Transaksi Komplit', 'Finance menutup siklus finansial event '.$event->nama_proyek.'. Semua komisi vendor telah lunas.');
+
+                    return back()->with('success', "Komisi untuk $vendorName berhasil dilunasi. Seluruh vendor telah lunas, Siklus Event Ditutup!");
+                }
+
+                return back()->with('success', "Komisi untuk $vendorName berhasil ditandai Lunas.");
+            }
+
+            // Fallback (jaga-jaga jika tombol lama yang tidak ada vendor_id ter-klik)
             $event->update([
                 'status_proyek' => 'Transaksi Komplit',
                 'tanggal_komisi_dibayar' => now(),

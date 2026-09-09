@@ -139,12 +139,6 @@
                                                     <span class="text-muted">—</span>
                                                 @endif
                                             </div>
-                                            @if($vendor->pivot->skor_survey_klien || $vendor->pivot->skor_kecepatan_komisi)
-                                                <div class="text-muted small">
-                                                    Survey: {{ $vendor->pivot->skor_survey_klien ?? '-' }} |
-                                                    Kecepatan: {{ $vendor->pivot->skor_kecepatan_komisi ?? '-' }}
-                                                </div>
-                                            @endif
                                         </td>
                                         <td>
                                             @php $jumlahReminder = $vendor->pivot->jumlah_reminder_terkirim ?? 0; @endphp
@@ -160,8 +154,8 @@
                                                     @method('PATCH')
                                                     <button type="submit"
                                                             class="btn btn-sm btn-success"
-                                                            onclick="return confirm('Tandai komisi {{ $vendor->nama_vendor }} sebagai LUNAS? Rating Murni akan dihitung otomatis.')">
-                                                        💵 Tandai Lunas
+                                                            onclick="return confirm('Tandai komisi {{ $vendor->nama_vendor }} sebagai LUNAS?')">
+                                                        💵 Transaksi Komplit
                                                     </button>
                                                 </form>
                                             @else

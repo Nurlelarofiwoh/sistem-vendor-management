@@ -42,10 +42,13 @@
                     <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total Event</p>
                     <p class="text-3xl font-bold text-[#4A3018] mt-2">{{ $sp_totalEvent }}</p>
                 </div>
-                <div class="p-6 bg-red-50 border border-red-200 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                    <p class="text-sm font-bold text-red-700 uppercase tracking-wide">Kontrak Mau Habis</p>
-                    <p class="text-3xl font-black text-red-700 mt-2">{{ $sp_kontrakHabis }}</p>
-                </div>
+                <a href="#kontrak-mau-habis" class="p-6 bg-red-50 border border-red-200 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+                    <div>
+                        <p class="text-sm font-bold text-red-700 uppercase tracking-wide">Kontrak Mau Habis</p>
+                        <p class="text-3xl font-black text-red-700 mt-2">{{ $sp_kontrakHabis }}</p>
+                    </div>
+                    <span class="text-[11px] font-bold text-red-600 hover:underline mt-2 inline-block">Lihat Daftar &rarr;</span>
+                </a>
                 <a href="{{ route('vendor.approval.index') }}" class="p-6 bg-orange-50 border border-orange-200 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
                     <div>
                         <p class="text-sm font-bold text-orange-700 uppercase tracking-wide">Pengajuan Baru</p>
@@ -105,7 +108,7 @@
                 {{-- TABEL: RATING VENDOR --}}
                 <div class="col-span-1 md:col-span-2 lg:col-span-4 bg-white p-6 rounded-2xl border border-[#F5EBE1] shadow-sm">
                     <h3 class="font-bold text-[#4A3018] text-sm mb-4 uppercase tracking-wide flex items-center gap-2">
-                        Rating Vendor (Berdasarkan Penilaian Klien & Ketepatan Komisi)
+                        Rating Vendor (Penilaian Klien)
                         <span class="text-[10px] text-gray-400 font-normal ml-auto" id="lastRatingUpdate">Terakhir diperbarui: {{ now()->format('H:i:s') }}</span>
                     </h3>
                     <div class="overflow-x-auto">
@@ -115,8 +118,9 @@
                                     <th class="text-left py-2 px-3 text-gray-500 font-bold uppercase">#</th>
                                     <th class="text-left py-2 px-3 text-gray-500 font-bold uppercase">Vendor</th>
                                     <th class="text-left py-2 px-3 text-gray-500 font-bold uppercase">Kategori</th>
-                                    <th class="text-center py-2 px-3 text-gray-500 font-bold uppercase">Rating</th>
+                                    <th class="text-center py-2 px-3 text-gray-500 font-bold uppercase">Rating Klien</th>
                                     <th class="text-center py-2 px-3 text-gray-500 font-bold uppercase">Total Review</th>
+                                    <th class="text-center py-2 px-3 text-gray-500 font-bold uppercase">Skor Finansial</th>
                                     <th class="text-center py-2 px-3 text-gray-500 font-bold uppercase">Status</th>
                                 </tr>
                             </thead>
@@ -136,6 +140,15 @@
                                         </td>
                                         <td class="py-2.5 px-3 text-center text-gray-500">{{ $vendor->total_review }}x</td>
                                         <td class="py-2.5 px-3 text-center">
+                                            @if(($vendor->skor_finansial ?? 3) === 3)
+                                                <span class="px-2 py-0.5 bg-green-100 text-green-700 font-bold rounded-full text-[10px]">✓ Lancar</span>
+                                            @elseif(($vendor->skor_finansial ?? 3) === 2)
+                                                <span class="px-2 py-0.5 bg-orange-100 text-orange-700 font-bold rounded-full text-[10px]">⚠️ Warning</span>
+                                            @else
+                                                <span class="px-2 py-0.5 bg-red-100 text-red-700 font-bold rounded-full text-[10px]">🔴 Sengketa</span>
+                                            @endif
+                                        </td>
+                                        <td class="py-2.5 px-3 text-center">
                                             @if ($vendor->status_aktif)
                                                 <span class="px-2 py-0.5 bg-green-100 text-green-700 font-bold rounded-full">Aktif</span>
                                             @else
@@ -145,7 +158,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="text-center py-6 text-gray-400">Belum ada data rating vendor.</td>
+                                        <td colspan="7" class="text-center py-6 text-gray-400">Belum ada data rating vendor.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -194,6 +207,59 @@
                     </div>
                 </div>
                 @endif
+
+                <!-- Table Daftar Vendor Kontrak Mau Habis -->
+                <div id="kontrak-mau-habis" class="col-span-1 md:col-span-2 lg:col-span-4 mt-2 scroll-mt-20">
+                    <div class="bg-white rounded-3xl shadow-md border border-red-100 overflow-hidden">
+                        <div class="px-6 py-4 bg-red-50 border-b border-red-100 flex justify-between items-center">
+                            <h3 class="font-black text-red-800 text-lg">Tindak Lanjut: Kontrak Vendor Mau Habis (30 Hari)</h3>
+                            <span class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full">{{ count($sp_kontrakHabisVendors) }} Vendor</span>
+                        </div>
+                        <div class="p-6">
+                            @if(count($sp_kontrakHabisVendors) > 0)
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-gray-50 border-b border-gray-200">
+                                                <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
+                                                <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Kategori</th>
+                                                <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Tanggal Habis Kontrak</th>
+                                                <th class="py-3 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100">
+                                            @foreach($sp_kontrakHabisVendors as $vendor)
+                                                <tr class="hover:bg-gray-50/50 transition-colors">
+                                                    <td class="py-3 px-4">
+                                                        <p class="font-bold text-[#4A3018] text-sm">{{ $vendor->nama_vendor }}</p>
+                                                    </td>
+                                                    <td class="py-3 px-4">
+                                                        <span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-md text-[10px] font-black uppercase tracking-wider">{{ $vendor->kategori_jasa }}</span>
+                                                    </td>
+                                                    <td class="py-3 px-4">
+                                                        <span class="font-bold text-red-600 text-sm">{{ \Carbon\Carbon::parse($vendor->tanggal_kontrak_habis)->format('d M Y') }}</span>
+                                                        <span class="text-xs text-red-400 block mt-0.5">({{ \Carbon\Carbon::parse($vendor->tanggal_kontrak_habis)->diffForHumans() }})</span>
+                                                    </td>
+                                                    <td class="py-3 px-4 text-right">
+                                                        <a href="{{ route('vendors.edit', $vendor->id) }}" class="inline-block px-4 py-1.5 bg-[#8B5A2B] text-white text-xs font-bold rounded-lg hover:bg-[#4A3018] transition-colors shadow-sm">
+                                                            Tinjau & Perbarui
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-8">
+                                    <span class="text-4xl mb-3 block">✅</span>
+                                    <p class="text-gray-500 text-sm font-medium">Bagus! Tidak ada vendor yang kontraknya akan habis dalam 30 hari ke depan.</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
             @endhasrole
 
 
@@ -245,7 +311,7 @@
                                             <td class="py-2.5 px-3 text-gray-600">{{ $item['jatuh_tempo']->translatedFormat('d M Y') }}</td>
                                             <td class="py-2.5 px-3 text-center">
                                                 @if ($item['sudah_jatuh'])
-                                                    <span class="px-2 py-1 bg-red-100 text-red-700 font-bold rounded-full">Terlambat {{ $item['hari_telat'] }} hari</span>
+                                                    <span class="px-2 py-1 bg-red-100 text-red-700 font-bold rounded-full">Terlambat {{ (int) $item['hari_telat'] }} hari</span>
                                                 @else
                                                     <span class="px-2 py-1 bg-yellow-100 text-yellow-700 font-bold rounded-full">Belum jatuh tempo</span>
                                                 @endif
@@ -293,6 +359,70 @@
                     <div class="bg-white p-5 rounded-2xl border border-[#F5EBE1] shadow-sm">
                         <p class="font-bold text-[#4A3018] text-sm mb-3">Event Berjalan</p>
                         <div class="relative h-48 w-full"><canvas id="eventChartComm"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="col-span-full mt-6">
+                    <div class="bg-white rounded-3xl shadow-md border border-red-100 overflow-hidden">
+                        <div class="px-6 py-4 bg-red-50 border-b border-red-100 flex justify-between items-center">
+                            <h3 class="font-black text-red-800 text-lg">⚠️ Evaluasi Vendor Bermasalah (Tier 3)</h3>
+                            <span class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full">{{ count($mc_vendorBermasalah) }} Vendor</span>
+                        </div>
+                        <div class="p-6">
+                            @if(count($mc_vendorBermasalah) > 0)
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-red-50/50">
+                                                <th class="py-3 px-4 text-xs font-bold text-red-800 uppercase tracking-wider border-b border-red-100 rounded-tl-xl">Vendor</th>
+                                                <th class="py-3 px-4 text-xs font-bold text-red-800 uppercase tracking-wider border-b border-red-100">Kategori</th>
+                                                <th class="py-3 px-4 text-xs font-bold text-red-800 uppercase tracking-wider border-b border-red-100">Rating</th>
+                                                <th class="py-3 px-4 text-xs font-bold text-red-800 uppercase tracking-wider border-b border-red-100 rounded-tr-xl">Masalah</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-red-50">
+                                            @foreach($mc_vendorBermasalah as $vendor)
+                                                <tr class="hover:bg-red-50/30 transition-colors">
+                                                    <td class="py-3 px-4">
+                                                        <p class="font-bold text-gray-800 text-sm">{{ $vendor->nama_vendor }}</p>
+                                                    </td>
+                                                    <td class="py-3 px-4">
+                                                        <span class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-md text-[10px] font-black uppercase tracking-wider">{{ $vendor->kategori_jasa }}</span>
+                                                    </td>
+                                                    <td class="py-3 px-4">
+                                                        @if($vendor->rating !== null)
+                                                            <div class="flex items-center gap-1">
+                                                                <span class="font-bold {{ $vendor->rating < 2.0 ? 'text-red-600' : 'text-yellow-600' }}">{{ $vendor->rating }}</span>
+                                                                <span class="text-yellow-400 text-sm">★</span>
+                                                            </div>
+                                                        @else
+                                                            <span class="text-gray-400 text-xs italic">Belum ada rating</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="py-3 px-4">
+                                                        <div class="flex flex-col gap-1">
+                                                            @if($vendor->rating !== null && $vendor->rating < 2.0)
+                                                                <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-[10px] font-bold w-fit">Rating Sangat Rendah</span>
+                                                            @endif
+                                                            @if($vendor->skor_finansial == 1)
+                                                                <span class="px-2 py-1 bg-red-600 text-white rounded text-[10px] font-bold w-fit">Sengketa (Nunggak > 90 Hari)</span>
+                                                            @elseif($vendor->skor_finansial == 2)
+                                                                <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded text-[10px] font-bold w-fit">Warning (Nunggak > 30 Hari)</span>
+                                                            @endif
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-8">
+                                    <span class="text-4xl mb-3 block">🎉</span>
+                                    <p class="text-gray-500 text-sm font-medium">Bagus! Tidak ada vendor Tier 3 yang bermasalah saat ini.</p>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 </div>
             @endhasrole

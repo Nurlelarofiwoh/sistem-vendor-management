@@ -134,7 +134,7 @@
 
                             @if ($event->tanggal_komisi_jatuh_tempo && !$event->tanggal_komisi_dibayar)
                                 @php
-                                    $hariSisa = now()->diffInDays($event->tanggal_komisi_jatuh_tempo, false);
+                                    $hariSisa = (int) now()->diffInDays($event->tanggal_komisi_jatuh_tempo, false);
                                 @endphp
                                 <div class="mt-3 p-3 {{ $hariSisa < 0 ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200' }} border rounded-lg">
                                     <p class="text-[10px] font-bold {{ $hariSisa < 0 ? 'text-red-600' : 'text-yellow-700' }} uppercase mb-1">Komisi Vendor</p>
@@ -142,7 +142,7 @@
                                         @if ($hariSisa < 0)
                                             ⚠️ Terlambat {{ abs($hariSisa) }} hari!
                                         @else
-                                            Jatuh tempo: {{ $event->tanggal_komisi_jatuh_tempo->translatedFormat('d M Y') }} ({{ $hariSisa }} hari lagi)
+                                            Jatuh tempo: {{ $event->tanggal_komisi_jatuh_tempo->translatedFormat('d M Y') }}
                                         @endif
                                     </p>
                                 </div>
@@ -254,15 +254,28 @@
                                             Tolak Pembayaran
                                         </button>
                                     @elseif ($event->status_proyek === 'Finish Event')
-                                        <form action="{{ route('events.updateStatus', $event->id) }}" method="POST">
-                                            @csrf @method('PATCH')
-                                            <input type="hidden" name="aksi" value="transaksi_komplit">
-                                            <button type="submit"
-                                                onclick="return confirm('Konfirmasi komisi vendor sudah diterima? Siklus event akan ditutup permanen.')"
-                                                class="w-full px-5 py-3.5 text-sm font-black text-white bg-green-600 hover:bg-green-700 rounded-xl transition-all shadow-md hover:shadow-lg uppercase tracking-wider text-center cursor-pointer">
-                                                Payment Komplit
-                                            </button>
-                                        </form>
+                                        <div class="space-y-2">
+                                            @foreach($event->client->vendors as $vendor)
+                                                <div class="p-2 border {{ $vendor->pivot->status_komisi === 'Lunas' ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white' }} rounded-lg shadow-sm">
+                                                    <p class="text-[10px] font-bold text-gray-800 mb-1 leading-tight truncate" title="[{{ $vendor->kategori_jasa }}] {{ $vendor->nama_vendor }}">[{{ $vendor->kategori_jasa }}] {{ $vendor->nama_vendor }}</p>
+                                                    @if($vendor->pivot->status_komisi === 'Lunas')
+                                                        <p class="text-[10px] font-bold text-green-700">✅ Lunas ({{ \Carbon\Carbon::parse($vendor->pivot->tanggal_bayar_komisi)->translatedFormat('d M Y') }})</p>
+                                                    @else
+                                                        <p class="text-[9px] text-gray-500 mb-2">Sisa penagihan: {{ max(0, 3 - $vendor->pivot->jumlah_reminder_terkirim) }}x (Terkirim: {{ $vendor->pivot->jumlah_reminder_terkirim }}x)</p>
+                                                        <form action="{{ route('events.updateStatus', $event->id) }}" method="POST">
+                                                            @csrf @method('PATCH')
+                                                            <input type="hidden" name="aksi" value="transaksi_komplit">
+                                                            <input type="hidden" name="vendor_id" value="{{ $vendor->id }}">
+                                                            <button type="submit"
+                                                                onclick="return confirm('Tandai komisi untuk {{ addslashes($vendor->nama_vendor) }} lunas?')"
+                                                                class="w-full px-3 py-2 text-[10px] font-bold text-white bg-green-600 hover:bg-green-700 rounded-md transition-all shadow-sm uppercase tracking-wider text-center cursor-pointer">
+                                                                Payment Komplit
+                                                            </button>
+                                                        </form>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
                                     @endif
                                 @endhasrole
 

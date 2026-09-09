@@ -26,14 +26,15 @@ class DashboardController extends Controller
         // =========================================================
         // 2. STRATEGIS / PARTNERSHIP: KONTRAK VENDOR MAU HABIS
         // =========================================================
-        $kontrakMauHabis = Vendor::query()
+        $kontrakMauHabisVendors = Vendor::query()
             ->where('status_aktif', true)
             ->whereNotNull('tanggal_kontrak_habis')
             ->whereBetween('tanggal_kontrak_habis', [
                 now()->toDateString(),
                 now()->addDays(30)->toDateString(),
             ])
-            ->count();
+            ->get();
+        $kontrakMauHabis = $kontrakMauHabisVendors->count();
 
         // =========================================================
         // 3. LOGIKA GRAFIK (KLIEN, VENDOR, EVENT) - 6 BULAN TERAKHIR
@@ -102,13 +103,13 @@ class DashboardController extends Controller
             ->get()
             ->flatMap(function ($project) {
                 return $project->client->vendors->map(function ($vendor) use ($project) {
-                    $hariTelat = now()->diffInDays($project->tanggal_komisi_jatuh_tempo, false);
+                    $hariTelat = (int) now()->diffInDays($project->tanggal_komisi_jatuh_tempo, false);
 
                     return [
                         'nama_vendor' => $vendor->nama_vendor,
                         'nama_proyek' => $project->nama_proyek,
                         'jatuh_tempo' => $project->tanggal_komisi_jatuh_tempo,
-                        'hari_telat' => $hariTelat < 0 ? abs($hariTelat) : 0,
+                        'hari_telat' => $hariTelat < 0 ? (int) abs($hariTelat) : 0,
                         'sudah_jatuh' => $hariTelat < 0,
                     ];
                 });
@@ -169,6 +170,7 @@ class DashboardController extends Controller
             'sp_totalKlien' => $totalKlien,
             'sp_totalEvent' => $totalEvent,
             'sp_kontrakHabis' => $kontrakMauHabis,
+            'sp_kontrakHabisVendors' => $kontrakMauHabisVendors,
             'sp_topVendor' => $spTopVendor,
             'sp_lowRatingVendors' => $spLowRatingVendors,
             'sp_vendorTerlambat' => $spVendorTerlambat,
@@ -187,6 +189,12 @@ class DashboardController extends Controller
             // --- MANAGER COMERCIAL ---
             'mc_butuhDisposisi' => VendorDocument::where('status_approval', 'pending')->count(),
             'mc_pendapatan' => $totalEventLunas,
+            'mc_vendorBermasalah' => Vendor::where('status_aktif', true)
+                ->where('harga', '<=', 25000000)
+                ->where(function ($query) {
+                    $query->where('rating', '<', 2.0)
+                        ->orWhereIn('skor_finansial', [1, 2]);
+                })->get(),
 
             // --- MANAGER OPERASIONAL ---
             'mo_jumlahEvent' => $totalEvent,
