@@ -1,27 +1,30 @@
 FROM php:8.2-cli
 
-# Install dependencies sistem & ekstensi PHP untuk Laravel
+# Install dependency sistem
 RUN apt-get update && apt-get install -y \
     git \
-    unzip \
+    curl \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
     zip \
-    curl
+    unzip \
+    libzip-dev
 
-RUN docker-php-ext-install pdo_mysql mbstring gd
+# Install ekstensi PHP wajib untuk Laravel
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# Copy Composer dari image resmi
+# Ambil Composer resmi
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
+
 COPY . .
 
-# Install dependency Laravel
-RUN composer install --no-dev --optimize-autoloader
+# Tambahkan --no-scripts agar Composer tidak mengeksekusi skrip artisan saat build Docker
+RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
-# Izinkan akses folder storage & cache
+# Atur hak akses folder cache dan storage
 RUN chmod -R 777 storage bootstrap/cache
 
 EXPOSE 10000
