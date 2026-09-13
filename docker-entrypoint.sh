@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-# Setup file database SQLite jika koneksi database diatur ke sqlite
-if [ "$DB_CONNECTION" = "sqlite" ]; then
+# Setup file database SQLite jika koneksi database diatur ke sqlite atau default
+if [ "$DB_CONNECTION" = "sqlite" ] || [ -z "$DB_CONNECTION" ]; then
     mkdir -p database
     touch database/database.sqlite
     chmod 666 database/database.sqlite || true
@@ -12,7 +12,12 @@ fi
 php artisan storage:link --force 2>/dev/null || true
 
 # Jalankan migrasi database
-php artisan migrate --force 2>/dev/null || echo "Migrasi database dilewati / belum terkoneksi ke database."
+echo "Menjalankan migrasi database..."
+php artisan migrate --force || echo "Migrasi database dilewati."
+
+# Jalankan seeder akun penting (cs@vms.test, dll.)
+echo "Memastikan akun dan role pengguna siap..."
+php artisan db:seed --class=RoleAndUserSeeder --force || echo "Seeder role & user dilewati."
 
 # Pastikan cache bersih saat deploy baru
 php artisan config:clear

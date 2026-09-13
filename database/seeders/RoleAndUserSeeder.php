@@ -15,53 +15,48 @@ class RoleAndUserSeeder extends Seeder
         // Reset cache Spatie Permission agar tidak error saat di-seed ulang
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // 1. MEMBUAT ROLES
-        $rolePartnership = Role::create(['name' => 'partnership']);
-        $roleAdminCS = Role::create(['name' => 'admin_cs']);
-        $roleOps = Role::create(['name' => 'manager_operasional']);
-        $roleFinance = Role::create(['name' => 'finance']);
-        $roleManager = Role::create(['name' => 'manager_comercial']);
+        // 1. MEMBUAT ROLES (idempotent)
+        $rolePartnership = Role::firstOrCreate(['name' => 'partnership']);
+        $roleAdminCS = Role::firstOrCreate(['name' => 'admin_cs']);
+        $roleOps = Role::firstOrCreate(['name' => 'manager_operasional']);
+        $roleFinance = Role::firstOrCreate(['name' => 'finance']);
+        $roleManager = Role::firstOrCreate(['name' => 'manager_comercial']);
 
-        // 2. MEMBUAT USERS & MENYAMBUNGKAN KE ROLE
+        // 2. MEMBUAT USERS & MENYAMBUNGKAN KE ROLE (idempotent)
 
         // Akun Divisi Partnership
-        $partnership = User::create([
-            'name' => 'Divisi Partnership',
-            'email' => 'partnership@vms.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $partnership->assignRole($rolePartnership);
+        $partnership = User::firstOrCreate(
+            ['email' => 'partnership@vms.test'],
+            ['name' => 'Divisi Partnership', 'password' => Hash::make('password123')]
+        );
+        $partnership->syncRoles($rolePartnership);
 
         // Akun Admin CS
-        $adminCS = User::create([
-            'name' => 'Admin CS',
-            'email' => 'cs@vms.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $adminCS->assignRole($roleAdminCS);
+        $adminCS = User::firstOrCreate(
+            ['email' => 'cs@vms.test'],
+            ['name' => 'Admin CS', 'password' => Hash::make('password123')]
+        );
+        $adminCS->syncRoles($roleAdminCS);
 
         // Akun Manager Operasional
-        $managerOps = User::create([
-            'name' => 'Manager Operasional',
-            'email' => 'ops@vms.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $managerOps->assignRole($roleOps);
+        $managerOps = User::firstOrCreate(
+            ['email' => 'ops@vms.test'],
+            ['name' => 'Manager Operasional', 'password' => Hash::make('password123')]
+        );
+        $managerOps->syncRoles($roleOps);
 
         // Akun Finance
-        $finance = User::create([
-            'name' => 'Tim Finance',
-            'email' => 'finance@vms.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $finance->assignRole($roleFinance);
+        $finance = User::firstOrCreate(
+            ['email' => 'finance@vms.test'],
+            ['name' => 'Tim Finance', 'password' => Hash::make('password123')]
+        );
+        $finance->syncRoles($roleFinance);
 
         // Akun Manager Comercial & Financial
-        $managerComercial = User::create([
-            'name' => 'Manager Comercial',
-            'email' => 'manager@vms.test',
-            'password' => Hash::make('password123'),
-        ]);
-        $managerComercial->assignRole($roleManager);
+        $managerComercial = User::firstOrCreate(
+            ['email' => 'manager@vms.test'],
+            ['name' => 'Manager Comercial', 'password' => Hash::make('password123')]
+        );
+        $managerComercial->syncRoles($roleManager);
     }
 }
