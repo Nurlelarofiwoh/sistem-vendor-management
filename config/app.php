@@ -52,7 +52,13 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => (function () {
+        $url = env('APP_URL', 'http://localhost');
+        if (!str_starts_with($url, 'http://') && !str_starts_with($url, 'https://')) {
+            return 'https://' . ltrim($url, '/');
+        }
+        return $url;
+    })(),
 
     /*
     |--------------------------------------------------------------------------
