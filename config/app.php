@@ -55,8 +55,16 @@ return [
     'url' => (function () {
         $url = env('APP_URL', 'http://localhost');
         if (!str_starts_with($url, 'http://') && !str_starts_with($url, 'https://')) {
-            return 'https://' . ltrim($url, '/');
+            $url = 'https://' . ltrim($url, '/');
         }
+        $url = str_replace(['<', '>', ' '], ['', '', '-'], $url);
+
+        try {
+            \Symfony\Component\HttpFoundation\Request::create($url);
+        } catch (\Throwable) {
+            return 'http://localhost';
+        }
+
         return $url;
     })(),
 
