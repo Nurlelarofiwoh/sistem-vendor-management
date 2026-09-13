@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Percayai reverse proxy Render agar HTTPS dan header X-Forwarded-Proto terbaca dengan benar
+        $middleware->trustProxies(at: '*');
+
         // Abaikan verifikasi CSRF untuk rute publik pendaftaran vendor agar tidak terjadi error 419 jika sesi expired
         $middleware->validateCsrfTokens(except: [
             'daftar-vendor',

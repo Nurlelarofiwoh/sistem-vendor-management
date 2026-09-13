@@ -62,7 +62,7 @@ return [
         try {
             \Symfony\Component\HttpFoundation\Request::create($url);
         } catch (\Throwable) {
-            return 'http://localhost';
+            return 'https://localhost';
         }
 
         return $url;
