@@ -18,9 +18,10 @@ class DatabaseSeeder extends Seeder
         // Panggil seeder Role dan User kita di sini
         $this->call([
             RoleAndUserSeeder::class,
-            DummyDataSeeder::class,   // Memasukkan data vendor & klien pernikahan
-            RejectedVendorSeeder::class,
+            VendorSeeder::class,            // Memasukkan 200+ vendor Jabodetabek dari database vendor utama
             ExperiencedVendorSeeder::class, // Vendor berpengalaman dengan rating variatif
+            RejectedVendorSeeder::class,    // Vendor ditolak
+            DummyDataSeeder::class,         // Memasukkan data klien, event/proyek berjalan, & tagihan komisi
         ]);
     }
 }

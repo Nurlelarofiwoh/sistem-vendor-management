@@ -64,9 +64,9 @@ php artisan storage:link --force 2>/dev/null || true
 echo "Menjalankan migrasi database ($DB_CONNECTION)..."
 php artisan migrate --force || echo "Migrasi database dilewati."
 
-# 7. Jalankan seeder akun penting (cs@vms.test, dll.)
-echo "Memastikan akun dan role pengguna siap..."
-php artisan db:seed --class=RoleAndUserSeeder --force || echo "Seeder role & user dilewati."
+# 7. Jalankan seeder database lengkap (roles, users, vendor, klien, & event)
+echo "Memastikan seluruh data pengguna, vendor, klien, & event siap..."
+php artisan db:seed --force || echo "Seeder database dilewati."
 
 # 8. Bersihkan cache aplikasi
 php artisan config:clear
