@@ -68,13 +68,13 @@ class DashboardController extends Controller
         // 4. LOGIKA GRAFIK PENDAPATAN 12 BULAN (PROYEK BARU)
         // =========================================================
         $clientBulanan = array_fill(1, 12, 0);
-        $clients = Client::selectRaw('MONTH(created_at) as bulan, COUNT(*) as total')
-            ->whereYear('created_at', Carbon::now()->year)
-            ->groupBy('bulan')
-            ->get();
+        $clients = Client::whereYear('created_at', Carbon::now()->year)->get();
 
         foreach ($clients as $c) {
-            $clientBulanan[$c->bulan] = $c->total;
+            if ($c->created_at) {
+                $bulan = (int) $c->created_at->format('n');
+                $clientBulanan[$bulan]++;
+            }
         }
 
         $pendapatanBulanan = array_fill(1, 12, 0);

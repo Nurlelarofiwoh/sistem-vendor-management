@@ -29,7 +29,7 @@ class VendorController extends Controller
 
         // Vendor proven (punya rating) muncul di atas, vendor baru (NULL) di bawah.
         // NULLS LAST agar tidak mengacaukan urutan proven vendors.
-        $vendors = $query->orderByRaw('rating IS NULL ASC, rating DESC')->paginate(15)->withQueryString();
+        $vendors = $query->orderByRaw('CASE WHEN rating IS NULL THEN 1 ELSE 0 END, rating DESC')->paginate(15)->withQueryString();
 
         $kategoriList = Vendor::distinct()->pluck('kategori_jasa')->sort();
         $daerahList = [
